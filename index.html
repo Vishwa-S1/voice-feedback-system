@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Voice Feedback System for NGOs</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: url("https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2c/70/94/53/caption.jpg?w=1200&h=-1&s=1") no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 600px;
+      width: 90%;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+
+    button {
+      background: #27ae60;
+      color: white;
+      padding: 10px 25px;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    button:hover {
+      background: #1f9450;
+    }
+
+    .output {
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .output h3 {
+      margin-bottom: 5px;
+    }
+
+    .output p {
+      background: #eef;
+      padding: 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Voice Feedback System for NGOs</h1>
+    <p>Speak and we’ll store your translated feedback.</p>
+    
+    <!-- Start Recording Button -->
+    <button onclick="startRecognition()">Start Recording</button>
+
+    <div class="output">
+      <h3>Original Input:</h3>
+      <p id="original">...</p>
+
+      <h3>Translated to English:</h3>
+      <p id="translated">...</p>
+    </div>
+
+    <!-- Re-record Button -->
+    <button onclick="reRecord()">Re-record Feedback</button>
+
+    <!-- Submit Button -->
+    <button onclick="submitFeedback()">Submit Feedback</button>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+  <script>
+    // ✅ Firebase config (Replace with your Firebase config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCOmrAOXXQFgM-s0ElOgIfP9Tp3LngfweI",
+      authDomain: "voicefeedbacksystem.firebaseapp.com",
+      projectId: "voicefeedbacksystem",
+      storageBucket: "voicefeedbacksystem.firebasestorage.app",
+      messagingSenderId: "231035469654",
+      appId: "1:231035469654:web:e8324a4c307b382d5ce0f7",
+      measurementId: "G-JT3D7QW7Z6"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let originalText = '';
+    let translatedText = '';
+
+    async function saveFeedback(original, translated) {
+      try {
+        await db.collection("feedbacks").add({
+          originalText: original,
+          translatedText: translated,
+          timestamp: new Date()
+        });
+        console.log("✅ Saved to Firebase");
+      } catch (e) {
+        console.error("❌ Save error:", e);
+        alert("Firebase save error: " + e.message);
+      }
+    }
+
+    function startRecognition() {
+      const original = document.getElementById('original');
+      const translated = document.getElementById('translated');
+
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'hi-IN';  // You can change the language to 'en-US', 'mr-IN', etc.
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        original.textContent = "🎙️ Listening...";
+        translated.textContent = "...";
+      };
+
+      recognition.onerror = (e) => {
+        original.textContent = 'Error: ' + e.error;
+      };
+
+      recognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        original.textContent = transcript;
+
+        try {
+          const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(transcript)}&langpair=hi|en`);
+          const data = await res.json();
+          translatedText = data.responseData.translatedText;
+          translated.textContent = translatedText;
+          
+          // Save to variables so it can be submitted later
+          originalText = transcript;
+        } catch (err) {
+          translated.textContent = 'Translation failed: ' + err.message;
+        }
+      };
+
+      recognition.start();
+    }
+
+    function submitFeedback() {
+      if (originalText && translatedText) {
+        saveFeedback(originalText, translatedText);
+
+        // Clear the textboxes after saving to Firebase
+        document.getElementById('original').textContent = '...';
+        document.getElementById('translated').textContent = '...';
+
+        // Reset the variables
+        originalText = '';
+        translatedText = '';
+      } else {
+        alert("Please record your feedback first.");
+      }
+    }
+
+    function reRecord() {
+      // Reset the original and translated text
+      document.getElementById('original').textContent = '...';
+      document.getElementById('translated').textContent = '...';
+
+      // Reset the variables
+      originalText = '';
+      translatedText = '';
+
+      // Start recording again
+      startRecognition();
+    }
+  </script>
+</body>
+</html>
